@@ -26,7 +26,7 @@ def init_index():
 
 
 # Tenta connessione Ollama
-def query_llama(system_prompt: str, user_prompt: str, model: str = "llama3.2:3b") -> str:
+def query_llama(system_prompt: str, user_prompt: str, model: str = "llama3.2:1b") -> str:
     """
     Query a Ollama/Llama locale.
     Usa temperature=0 per output deterministico.
@@ -40,13 +40,14 @@ def query_llama(system_prompt: str, user_prompt: str, model: str = "llama3.2:3b"
                 {'role': 'user', 'content': user_prompt}
             ],
             options={
-                'temperature': 0,  # Massima determinicità
-                'num_predict': 2000  # Limita output
+                'temperature': 0,
+                'num_predict': 800,  # Output più corto
+                'num_ctx': 2048      # Contesto ridotto
             }
         )
         return response['message']['content']
     except Exception as e:
-        return f"ERRORE OLLAMA: {str(e)}\n\nAssicurati che Ollama sia attivo (ollama serve) e che llama3 sia installato (ollama pull llama3)"
+        return f"ERRORE OLLAMA: {str(e)}\n\nAssicurati che Ollama sia attivo (ollama serve) e che il modello sia installato (ollama pull llama3.2:1b)"
 
 
 def generate_structured_analysis(project_desc: str, skip_llm: bool = False) -> dict:
@@ -56,7 +57,7 @@ def generate_structured_analysis(project_desc: str, skip_llm: bool = False) -> d
     """
 
     # 1. RICERCA DETERMINISTICA - Trova articoli rilevanti
-    relevant_articles = index.search(project_desc, top_k=8)
+    relevant_articles = index.search(project_desc, top_k=4)  # Ridotto per velocità
 
     # 2. CLASSIFICAZIONE KEYWORD - Rischio basato su parole chiave note
     keyword_matches = classify_risk_keywords(project_desc)
@@ -80,7 +81,7 @@ def generate_structured_analysis(project_desc: str, skip_llm: bool = False) -> d
     cited_articles = []
 
     for art in relevant_articles:
-        context_text += f"\n\n### {art['title']}\n{art['content'][:1500]}..."
+        context_text += f"\n\n### {art['title']}\n{art['content'][:600]}..."  # Ridotto
         cited_articles.append({
             'id': art['id'],
             'title': art['title'],
