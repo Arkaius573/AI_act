@@ -1,0 +1,227 @@
+# app.py
+import reflex as rx
+from ollama import Client
+import sys
+import os
+
+# --- IMPORT MOTORE RAG ---
+try:
+    from compliance_db.backend import ComplianceEngine
+except ImportError:
+    print("⚠️ ERRORE: Impossibile importare ComplianceEngine")
+    print("   Hai creato compliance_db/__init__.py?")
+    raise  # Rilancia errore per debug
+
+# Crea istanza motore (carica database)
+engine = ComplianceEngine()
+# ↑ Questo viene eseguito ALL'AVVIO dell'app
+
+
+class State(rx.State):
+    """
+    Classe di stato Reflex: contiene dati condivisi tra frontend e backend
+    """
+    
+    # Variabili di stato (reattive)
+    project_description: str = ""  # Input utente
+    audit_report: str = ""         # Output generato
+    is_loading: bool = False       # Spinner caricamento
+    
+    def generate_audit(self):
+        """
+        Funzione chiamata quando utente clicca "Genera Analisi"
+        """
+        
+        # Validazione input
+        if self.project_description.strip() == "":
+            return  # Esce se campo vuoto
+        
+        # Imposta stato caricamento
+        self.is_loading = True
+        self.audit_report = ""  # Reset report precedente
+        yield  # ⚠️ CRITICO: Aggiorna UI PRIMA di iniziare elaborazione
+        #      Senza yield, spinner non appare
+        
+        try:
+            # --- STEP 1: RECUPERO ARTICOLI (RAG) ---
+            context_rules = engine.search_relevant_rules(
+                self.project_description,
+                threshold=1.0  # ⚠️ Soglia: 1.0 = buon compromesso
+            )
+            # Esempio output:
+            # "ARTICOLO 5: Sono vietate le pratiche AI che...
+            #  ---
+            #  ARTICOLO 6: Sistemi ad alto rischio sono..."
+            
+            # --- STEP 2: CONNESSIONE OLLAMA ---
+            client = Client(host='http://localhost:11434')
+            # ⚠️ Ollama DEVE essere attivo! Controlla con: ollama list
+            
+            # --- STEP 3: CREAZIONE PROMPT ---
+            system_prompt = f"""
+            Agisci come un Lead Auditor esperto per l'AI Act (Regolamento UE 2024/1689).
+            Data attuale: 2026 (Legge pienamente in vigore).
+
+            REGOLE DI RIFERIMENTO ESTRATTE DAL TESTO DI LEGGE:
+            ---
+            {context_rules}
+            ---
+
+            COMPITO:
+            Analizza il progetto dell'utente basandoti ESCLUSIVAMENTE sulle regole sopra.
+            Se rilevi discriminazione o "Rischio Inaccettabile" (Art. 5), dichiaralo con fermezza.
+            
+            Struttura il report in 4 sezioni Markdown:
+            # 1. Executive Summary
+            # 2. Classificazione AI Act (Inaccettabile / Alto / Limitato / Minimo)
+            # 3. Analisi GDPR & Privacy
+            # 4. Piano d'Azione
+            
+            Tono: Formale, Tecnico-Legale. Lingua: Italiano.
+            """
+            # ↑ Questo è il "cervello" del sistema RAG:
+            #   - Fornisce contesto (articoli) al LLM
+            #   - Limita allucinazioni ("basati ESCLUSIVAMENTE su...")
+            #   - Impone struttura output
+            
+            # --- STEP 4: GENERAZIONE RISPOSTA ---
+            response = client.chat(
+                model='llama3',  # ⚠️ Deve essere installato: ollama pull llama3
+                messages=[
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user', 'content': f"Descrizione Progetto:\n{self.project_description}"}
+                ],
+                options={"temperature": 0.1}  # Bassa = più deterministico
+                #        ↑
+                #        0 = sempre uguale, 1 = molto creativo
+            )
+            
+            # Estrai testo risposta
+            self.audit_report = response['message']['content']
+            
+        except Exception as e:
+            # Gestione errori
+            self.audit_report = f"""
+            ⚠️ ERRORE durante la generazione.
+            
+            Dettagli tecnici: {str(e)}
+            
+            Possibili cause:
+            1. Ollama non è attivo (esegui: ollama serve)
+            2. Modello llama3 non installato (esegui: ollama pull llama3)
+            3. Database non creato (esegui: python setup_db.py)
+            4. Problema di rete/RAM
+            """
+        
+        # Fine elaborazione
+        self.is_loading = False
+    
+    def clear_form(self):
+        """Reset form"""
+        self.project_description = ""
+        self.audit_report = ""
+
+
+# --- INTERFACCIA UTENTE (REFLEX) ---
+def index() -> rx.Component:
+    """Definisce layout della pagina"""
+    return rx.box(
+        # Box esterno (sfondo gradiente)
+        rx.center(
+            rx.vstack(
+                # --- HEADER ---
+                rx.vstack(
+                    rx.badge(
+                        "AI ACT 2026 COMPLIANT",
+                        color_scheme="indigo",
+                        variant="solid",
+                        radius="full"
+                    ),
+                    rx.heading(
+                        "AI Regulatory Auditor",
+                        size="8",
+                        weight="bold",
+                        background_image="linear-gradient(45deg, #4f46e5, #9333ea)",
+                        background_clip="text",
+                        color="transparent"
+                    ),
+                    rx.text(
+                        "Assistente legale intelligente per conformità EU",
+                        color="gray",
+                        font_size="1.1em"
+                    ),
+                    spacing="3",
+                    align="center"
+                ),
+                
+                # --- FORM INPUT ---
+                rx.box(
+                    rx.text("Documentazione Tecnica", weight="bold"),
+                    rx.text_area(
+                        placeholder="Descrivi il sistema AI (es: videosorveglianza con facial recognition per sicurezza aeroportuale...)",
+                        value=State.project_description,  # Binding reattivo
+                        on_change=State.set_project_description,  # Auto-generato da Reflex
+                        min_height="180px",
+                        width="100%"
+                    ),
+                    width="100%"
+                ),
+                
+                # --- PULSANTI ---
+                rx.hstack(
+                    rx.button(
+                        "Genera Analisi",
+                        on_click=State.generate_audit,  # Chiama funzione
+                        loading=State.is_loading,       # Mostra spinner se True
+                        bg="linear-gradient(90deg, #4f46e5, #7c3aed)",
+                        color="white",
+                        width="65%"
+                    ),
+                    rx.button(
+                        "Pulisci",
+                        on_click=State.clear_form,
+                        variant="surface",
+                        width="30%"
+                    ),
+                    width="100%",
+                    justify="between"
+                ),
+                
+                # Card container
+                bg="white",
+                padding="2.5em",
+                border_radius="24px",
+                box_shadow="0 20px 25px -5px rgba(0, 0, 0, 0.1)",
+                max_width="750px"
+            ),
+            
+            # --- REPORT OUTPUT (condizionale) ---
+            rx.cond(
+                State.audit_report != "",  # Mostra SOLO se c'è report
+                rx.box(
+                    rx.heading("Report di Conformità", size="4"),
+                    rx.box(
+                        rx.markdown(State.audit_report),  # Renderizza Markdown
+                        line_height="1.7"
+                    ),
+                    bg="white",
+                    padding="3em",
+                    border_radius="16px",
+                    border_top="4px solid #6366f1",
+                    max_width="750px"
+                )
+            ),
+            
+            spacing="6",
+            align="center",
+            width="100%"
+        ),
+        
+        # Sfondo pagina
+        background="radial-gradient(circle at top right, #e0e7ff, #f3f4f6)",
+        min_height="100vh"
+    )
+
+# --- CONFIGURAZIONE APP ---
+app = rx.App()
+app.add_page(index)  # Aggiungi pagina principale
