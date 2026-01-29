@@ -26,7 +26,7 @@ def init_index():
 
 
 # Tenta connessione Ollama
-def query_llama(system_prompt: str, user_prompt: str, model: str = "llama3") -> str:
+def query_llama(system_prompt: str, user_prompt: str, model: str = "phi3:mini") -> str:
     """
     Query a Ollama/Llama locale.
     Usa temperature=0 per output deterministico.
@@ -46,7 +46,7 @@ def query_llama(system_prompt: str, user_prompt: str, model: str = "llama3") -> 
         )
         return response['message']['content']
     except Exception as e:
-        return f"ERRORE OLLAMA: {str(e)}\n\nAssicurati che Ollama sia attivo (ollama serve) e che il modello sia installato (ollama pull llama3)"
+        return f"ERRORE OLLAMA: {str(e)}\n\nAssicurati che Ollama sia attivo (ollama serve) e che il modello sia installato (ollama pull phi3:mini)"
 
 
 def generate_structured_analysis(project_desc: str, skip_llm: bool = False) -> dict:
