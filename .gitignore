@@ -1,6 +1,8 @@
 .web
 *.db
 *.py[cod]
+*.pkl
 .states
 __pycache__/
 assets/external/
+compliance_db/
