@@ -26,7 +26,7 @@ def init_index():
 
 
 # Tenta connessione Ollama
-def query_llama(system_prompt: str, user_prompt: str, model: str = "llama3") -> str:
+def query_llama(system_prompt: str, user_prompt: str, model: str = "llama3.2:3b") -> str:
     """
     Query a Ollama/Llama locale.
     Usa temperature=0 per output deterministico.
@@ -49,7 +49,7 @@ def query_llama(system_prompt: str, user_prompt: str, model: str = "llama3") -> 
         return f"ERRORE OLLAMA: {str(e)}\n\nAssicurati che Ollama sia attivo (ollama serve) e che llama3 sia installato (ollama pull llama3)"
 
 
-def generate_structured_analysis(project_desc: str) -> dict:
+def generate_structured_analysis(project_desc: str, skip_llm: bool = False) -> dict:
     """
     Genera analisi strutturata.
     Combina ricerca BM25 deterministica con generazione LLM controllata.
@@ -127,12 +127,35 @@ Azioni concrete per raggiungere la conformità.
 ## 5. STRUTTURA DOCUMENTAZIONE RICHIESTA
 Template per la documentazione conforme all'AI Act."""
 
-    # 5. GENERAZIONE LLM (con contesto controllato)
-    llm_analysis = query_llama(system_prompt, user_prompt)
+    # 5. GENERAZIONE LLM (con contesto controllato) o risposta rapida
+    if skip_llm:
+        # Modalità veloce: genera report base senza LLM
+        llm_analysis = f"""## 1. CLASSIFICAZIONE AI ACT
+Livello di rischio: **{risk_level.upper()}**
+{risk_reason}
+
+## 2. ARTICOLI POTENZIALMENTE RILEVANTI
+{chr(10).join([f"- **{art['title']}** (rilevanza: {art['relevance_score']})" for art in relevant_articles])}
+
+## 3. REQUISITI DI CONFORMITA'
+Consultare gli articoli sopra elencati per i requisiti specifici.
+Per un'analisi dettagliata, disattivare la modalità veloce.
+
+## 4. PIANO D'AZIONE
+1. Verificare la classificazione del sistema AI
+2. Consultare gli articoli rilevanti identificati
+3. Implementare i requisiti applicabili
+
+## 5. NOTA
+Questa è un'analisi rapida basata su keyword matching.
+Per un report dettagliato generato da LLM, disattiva "Modalità Veloce"."""
+    else:
+        llm_analysis = query_llama(system_prompt, user_prompt)
 
     # 6. STRUTTURA OUTPUT FINALE
     return {
         'project_description': project_desc,
+        'fast_mode': skip_llm,
         'risk_classification': {
             'level': risk_level,
             'reason': risk_reason,
@@ -161,6 +184,7 @@ def analyze():
         return jsonify({'error': 'Campo "description" richiesto'}), 400
 
     description = data['description'].strip()
+    fast_mode = data.get('fast', False)  # Modalità veloce senza LLM
 
     if len(description) < 20:
         return jsonify({'error': 'Descrizione troppo breve (minimo 20 caratteri)'}), 400
@@ -169,7 +193,7 @@ def analyze():
         return jsonify({'error': 'Descrizione troppo lunga (massimo 5000 caratteri)'}), 400
 
     try:
-        result = generate_structured_analysis(description)
+        result = generate_structured_analysis(description, skip_llm=fast_mode)
         return jsonify(result)
     except Exception as e:
         return jsonify({'error': str(e)}), 500

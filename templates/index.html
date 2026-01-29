@@ -300,6 +300,13 @@
 Esempio: Sistema di intelligenza artificiale per la valutazione automatica dei curriculum vitae dei candidati, che analizza competenze, esperienze pregresse e genera un punteggio di idoneità per posizioni lavorative aperte."></textarea>
             </div>
 
+            <div class="options-row" style="margin-bottom: 15px;">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                    <input type="checkbox" id="fastMode" style="width: 18px; height: 18px;">
+                    <span><strong>Modalita Veloce</strong> (senza LLM - istantaneo)</span>
+                </label>
+            </div>
+
             <div class="btn-row">
                 <button class="btn-primary" id="analyzeBtn" onclick="analyze()">
                     Analizza Conformita
@@ -361,6 +368,7 @@ Esempio: Sistema di intelligenza artificiale per la valutazione automatica dei c
         // Analisi principale
         async function analyze() {
             const description = document.getElementById('description').value.trim();
+            const fastMode = document.getElementById('fastMode').checked;
 
             if (description.length < 20) {
                 alert('Inserisci una descrizione piu dettagliata (minimo 20 caratteri)');
@@ -376,7 +384,7 @@ Esempio: Sistema di intelligenza artificiale per la valutazione automatica dei c
                 const res = await fetch('/api/analyze', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ description })
+                    body: JSON.stringify({ description, fast: fastMode })
                 });
 
                 const data = await res.json();
