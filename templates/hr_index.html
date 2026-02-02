@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Act HR Auditor</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 16px;
+        }
+        header h1 { font-size: 2rem; margin-bottom: 5px; }
+        header p { opacity: 0.9; }
+        .badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            margin-bottom: 10px;
+        }
+
+        .card {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; }
+        textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 12px;
+            border: 2px solid #334;
+            border-radius: 8px;
+            background: #0f0f23;
+            color: #eee;
+            font-size: 1rem;
+            resize: vertical;
+        }
+        textarea:focus { outline: none; border-color: #667eea; }
+
+        .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            flex: 1;
+        }
+        .btn-primary:hover { transform: translateY(-2px); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-secondary { background: #334; color: #eee; }
+
+        /* Steps */
+        .steps-container { margin-top: 20px; }
+        .step {
+            background: #0f0f23;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+        .step-header {
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            border-left: 4px solid #334;
+        }
+        .step-header.pending { border-left-color: #666; }
+        .step-header.loading { border-left-color: #f59e0b; }
+        .step-header.done { border-left-color: #22c55e; }
+        .step-title { font-weight: 600; }
+        .step-status {
+            font-size: 0.8rem;
+            padding: 4px 10px;
+            border-radius: 4px;
+            background: #334;
+        }
+        .step-content {
+            padding: 0 15px 15px;
+            display: none;
+            line-height: 1.7;
+        }
+        .step-content.show { display: block; }
+        .step-content pre {
+            background: #1a1a2e;
+            padding: 10px;
+            border-radius: 6px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+
+        /* Results */
+        #results { display: none; }
+        .risk-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+        .risk-alto { background: #dc2626; }
+
+        .articles-grid {
+            display: grid;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .article-item {
+            background: #0f0f23;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 3px solid #667eea;
+        }
+        .article-item.critical { border-left-color: #dc2626; }
+        .article-num { font-weight: 700; color: #667eea; }
+        .article-title { font-weight: 600; }
+        .article-focus { font-size: 0.85rem; color: #f59e0b; margin-top: 5px; }
+
+        /* Markdown rendering */
+        .md-content h2 { color: #667eea; margin: 20px 0 10px; font-size: 1.2rem; }
+        .md-content h3 { color: #a78bfa; margin: 15px 0 8px; font-size: 1.1rem; }
+        .md-content p { margin: 8px 0; line-height: 1.6; }
+        .md-content ul, .md-content ol { margin: 10px 0 10px 20px; }
+        .md-content li { margin: 5px 0; }
+        .md-content table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        .md-content th, .md-content td {
+            padding: 8px 12px;
+            border: 1px solid #334;
+            text-align: left;
+        }
+        .md-content th { background: #1a1a2e; }
+        .md-content code {
+            background: #1a1a2e;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .md-content pre code {
+            display: block;
+            padding: 12px;
+            overflow-x: auto;
+        }
+
+        /* Checklist */
+        .checklist-section { margin-bottom: 20px; }
+        .checklist-section h4 {
+            background: #1a1a2e;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            border-bottom: 1px solid #334;
+        }
+        .checklist-item input { width: 18px; height: 18px; }
+
+        @media (max-width: 600px) {
+            header h1 { font-size: 1.5rem; }
+            .btn-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="badge">AI ACT 2024 - ALLEGATO III, PUNTO 4</div>
+            <h1>HR Auditor</h1>
+            <p>Compliance check per sistemi AI di selezione personale</p>
+        </header>
+
+        <div class="card">
+            <div class="form-group">
+                <label>Descrivi il sistema HR/Recruiting</label>
+                <textarea id="description" placeholder="Es: Sistema di AI che analizza i curriculum vitae dei candidati, estrae competenze e esperienze, e genera un punteggio di idoneità per le posizioni aperte. Utilizza dati storici delle assunzioni passate per il training."></textarea>
+            </div>
+
+            <div class="btn-row">
+                <button class="btn-primary" id="btnAnalyze" onclick="startAnalysis()">
+                    Analizza Sistema
+                </button>
+                <button class="btn-secondary" onclick="showChecklist()">
+                    Checklist Documentazione
+                </button>
+            </div>
+        </div>
+
+        <!-- Risultati -->
+        <div id="results">
+            <!-- Classificazione -->
+            <div class="card">
+                <h3>Classificazione</h3>
+                <div class="risk-badge risk-alto">ALTO RISCHIO</div>
+                <p id="classificationReason"></p>
+            </div>
+
+            <!-- Articoli -->
+            <div class="card">
+                <h3>Articoli Applicabili</h3>
+                <div id="articlesList" class="articles-grid"></div>
+            </div>
+
+            <!-- Report Base -->
+            <div class="card">
+                <h3>Report Base (Deterministico)</h3>
+                <div id="baseReport" class="md-content"></div>
+            </div>
+
+            <!-- Analisi Step-by-Step -->
+            <div class="card">
+                <h3>Analisi Dettagliata</h3>
+                <p style="margin-bottom:15px; opacity:0.8;">Clicca su ogni sezione per generare l'analisi (richiede LLM)</p>
+                <div id="stepsContainer" class="steps-container"></div>
+            </div>
+        </div>
+
+        <!-- Checklist Modal -->
+        <div id="checklistModal" class="card" style="display:none;">
+            <h3>Checklist Documentazione AI Act</h3>
+            <p style="margin-bottom:15px; opacity:0.8;">Documenti richiesti per sistemi HR ad alto rischio</p>
+            <div id="checklistContent"></div>
+            <button class="btn-secondary" style="margin-top:15px;" onclick="hideChecklist()">Chiudi</button>
+        </div>
+    </div>
+
+    <script>
+        let currentDescription = '';
+        const steps = [
+            { id: 'data_bias', title: 'Analisi Dati e Bias (Art. 10)', status: 'pending', content: '' },
+            { id: 'human_oversight', title: 'Sorveglianza Umana (Art. 14)', status: 'pending', content: '' },
+            { id: 'logging', title: 'Logging e Spiegabilità (Art. 12)', status: 'pending', content: '' },
+            { id: 'fria', title: 'Valutazione Impatto Diritti (Art. 27)', status: 'pending', content: '' },
+        ];
+
+        async function startAnalysis() {
+            const desc = document.getElementById('description').value.trim();
+            if (desc.length < 20) {
+                alert('Inserisci una descrizione più dettagliata');
+                return;
+            }
+
+            currentDescription = desc;
+            document.getElementById('btnAnalyze').disabled = true;
+            document.getElementById('btnAnalyze').textContent = 'Caricamento...';
+
+            try {
+                // Step 0: Classificazione (istantanea)
+                const res = await fetch('/api/classify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ description: desc })
+                });
+                const data = await res.json();
+
+                if (data.error) {
+                    alert('Errore: ' + data.error);
+                    return;
+                }
+
+                // Mostra risultati
+                displayResults(data);
+
+            } catch (e) {
+                alert('Errore: ' + e.message);
+            } finally {
+                document.getElementById('btnAnalyze').disabled = false;
+                document.getElementById('btnAnalyze').textContent = 'Analizza Sistema';
+            }
+        }
+
+        function displayResults(data) {
+            // Classificazione
+            document.getElementById('classificationReason').textContent = data.classification.allegato_iii;
+
+            // Articoli
+            const articlesHtml = data.articles.map(art => `
+                <div class="article-item ${art.critical ? 'critical' : ''}">
+                    <span class="article-num">Art. ${art.number}</span>
+                    <span class="article-title">${art.title}</span>
+                    ${art.critical ? '<span style="color:#dc2626;"> ⚠️ CRITICO</span>' : ''}
+                    <p style="margin-top:5px; opacity:0.8; font-size:0.9rem;">${art.summary}</p>
+                    ${art.hr_focus ? `<p class="article-focus">👉 ${art.hr_focus}</p>` : ''}
+                </div>
+            `).join('');
+            document.getElementById('articlesList').innerHTML = articlesHtml;
+
+            // Report base (converti markdown)
+            document.getElementById('baseReport').innerHTML = renderMarkdown(data.base_report);
+
+            // Steps
+            renderSteps();
+
+            // Mostra risultati
+            document.getElementById('results').style.display = 'block';
+            document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function renderSteps() {
+            const html = steps.map((step, i) => `
+                <div class="step" id="step-${step.id}">
+                    <div class="step-header ${step.status}" onclick="toggleStep('${step.id}')">
+                        <span class="step-title">${i + 1}. ${step.title}</span>
+                        <span class="step-status">${getStatusText(step.status)}</span>
+                    </div>
+                    <div class="step-content" id="content-${step.id}">
+                        ${step.content || '<p>Clicca per generare l\'analisi...</p>'}
+                    </div>
+                </div>
+            `).join('');
+            document.getElementById('stepsContainer').innerHTML = html;
+        }
+
+        function getStatusText(status) {
+            switch (status) {
+                case 'pending': return 'In attesa';
+                case 'loading': return 'Generazione...';
+                case 'done': return '✓ Completato';
+                default: return status;
+            }
+        }
+
+        async function toggleStep(stepId) {
+            const step = steps.find(s => s.id === stepId);
+            const contentEl = document.getElementById(`content-${stepId}`);
+            const headerEl = document.querySelector(`#step-${stepId} .step-header`);
+
+            // Toggle visibility
+            contentEl.classList.toggle('show');
+
+            // Se già fatto o in loading, esci
+            if (step.status === 'done' || step.status === 'loading') return;
+
+            // Genera analisi
+            step.status = 'loading';
+            headerEl.className = 'step-header loading';
+            headerEl.querySelector('.step-status').textContent = 'Generazione...';
+            contentEl.innerHTML = '<p>⏳ Analisi in corso...</p>';
+
+            try {
+                const res = await fetch('/api/analyze/step', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        description: currentDescription,
+                        step_id: stepId
+                    })
+                });
+                const data = await res.json();
+
+                step.status = 'done';
+                step.content = data.analysis;
+                headerEl.className = 'step-header done';
+                headerEl.querySelector('.step-status').textContent = '✓ Completato';
+                contentEl.innerHTML = renderMarkdown(data.analysis);
+
+            } catch (e) {
+                step.status = 'pending';
+                headerEl.className = 'step-header pending';
+                headerEl.querySelector('.step-status').textContent = 'Errore';
+                contentEl.innerHTML = `<p style="color:#dc2626;">Errore: ${e.message}</p>`;
+            }
+        }
+
+        async function showChecklist() {
+            const modal = document.getElementById('checklistModal');
+            const content = document.getElementById('checklistContent');
+
+            try {
+                const res = await fetch('/api/checklist');
+                const data = await res.json();
+
+                const html = data.checklist.map(section => `
+                    <div class="checklist-section">
+                        <h4>${section.section}</h4>
+                        ${section.items.map(item => `
+                            <div class="checklist-item">
+                                <input type="checkbox" id="chk-${Math.random().toString(36).substr(2,9)}">
+                                <label>${item}</label>
+                            </div>
+                        `).join('')}
+                    </div>
+                `).join('');
+
+                content.innerHTML = html;
+                modal.style.display = 'block';
+                modal.scrollIntoView({ behavior: 'smooth' });
+
+            } catch (e) {
+                alert('Errore: ' + e.message);
+            }
+        }
+
+        function hideChecklist() {
+            document.getElementById('checklistModal').style.display = 'none';
+        }
+
+        function renderMarkdown(text) {
+            // Basic markdown rendering
+            return text
+                .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+                .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                .replace(/^- (.+)$/gm, '<li>$1</li>')
+                .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
+                .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
+                .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+                .replace(/\|(.+)\|/g, (match) => {
+                    const cells = match.split('|').filter(c => c.trim());
+                    if (cells.some(c => c.includes('---'))) return '';
+                    const tag = match.includes('Articolo') && match.includes('Requisito') ? 'th' : 'td';
+                    return '<tr>' + cells.map(c => `<${tag}>${c.trim()}</${tag}>`).join('') + '</tr>';
+                })
+                .replace(/(<tr>.*<\/tr>)+/gs, '<table>$&</table>')
+                .replace(/\n\n/g, '</p><p>')
+                .replace(/^(?!<)(.+)$/gm, '<p>$1</p>')
+                .replace(/<p><\/p>/g, '');
+        }
+    </script>
+</body>
+</html>
