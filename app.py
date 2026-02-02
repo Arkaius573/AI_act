@@ -19,7 +19,7 @@ from hr_auditor import (
 app = Flask(__name__)
 
 
-def query_llama_short(prompt: str, model: str = "phi3") -> str:
+def query_llama_short(prompt: str, model: str = "llama3") -> str:
     """Query LLM con prompt corto per risposta veloce."""
     try:
         import ollama
@@ -141,7 +141,7 @@ def steps():
 def status():
     """Stato del sistema."""
     ollama_ok = False
-    model_name = "phi3"
+    model_name = "llama3"
     try:
         import ollama
         models = ollama.list()
