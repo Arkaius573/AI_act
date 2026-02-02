@@ -19,7 +19,7 @@ from hr_auditor import (
 app = Flask(__name__)
 
 
-def query_llama_short(prompt: str, model: str = "phi3:mini") -> str:
+def query_llama_short(prompt: str, model: str = "phi3") -> str:
     """Query LLM con prompt corto per risposta veloce."""
     try:
         import ollama
@@ -141,7 +141,7 @@ def steps():
 def status():
     """Stato del sistema."""
     ollama_ok = False
-    model_name = "phi3:mini"
+    model_name = "phi3"
     try:
         import ollama
         models = ollama.list()
@@ -176,7 +176,7 @@ if __name__ == '__main__':
             print(f"  → {', '.join(available[:3])}")
     except Exception as e:
         print(f"Ollama: non disponibile")
-        print(f"  → Esegui: ollama serve && ollama pull phi3:mini")
+        print(f"  → Esegui: ollama serve && ollama pull phi3")
 
     print("-" * 50)
     print("Server: http://localhost:5000")
